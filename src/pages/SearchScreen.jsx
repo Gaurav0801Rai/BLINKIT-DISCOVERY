@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { PRODUCTS_DATABASE } from '../data/productsData';
+import { PRODUCTS_DATABASE, getFallbackProductImage } from '../data/productsData';
 
 export const SearchScreen = () => {
   const { setActiveTab, openProduct, addToCart, householdData, ordersHistory } = useApp();
@@ -8,11 +8,49 @@ export const SearchScreen = () => {
 
   const popularChips = (householdData.searchChips || ['Pet Care', 'Baby Care', 'Cosmetics', 'Milk', 'Atta', 'Earbuds']);
 
-  // Extract categories previously ordered by user
-  const orderedCatNames = ordersHistory.flatMap(o => o.items.map(i => i.name));
+  // Dynamic cross-category discovery suggestions based on order history
+  const getOrderHistorySuggestions = () => {
+    if (ordersHistory.length === 0) {
+      return [
+        { label: '✨ Try Captain Zack Anti-Tick Shampoo', query: 'Shampoo' },
+        { label: '✨ Try Dark Fantasy Choco Fills', query: 'Dark Fantasy' },
+        { label: '✨ Try Noise Wireless Earbuds', query: 'Earbuds' },
+        { label: '✨ Try Hass Organic Avocados', query: 'Avocado' }
+      ];
+    }
 
-  const handleChipClick = (chip) => {
-    setSearchTerm(chip);
+    const pastItems = ordersHistory.flatMap(o => o.items);
+    const catKeys = pastItems.map(i => i.categoryKey || '');
+
+    const suggestions = [];
+    if (catKeys.some(k => k.includes('pet'))) {
+      suggestions.push({ label: '✨ Try Pet Odor Deodorizer Spray', query: 'Spray' });
+      suggestions.push({ label: '✨ Try Rubber Chew Ball Toy', query: 'Chew' });
+    }
+    if (catKeys.some(k => k.includes('dairy') || k.includes('staples'))) {
+      suggestions.push({ label: '✨ Try Organic Cold Pressed Ghee', query: 'Ghee' });
+      suggestions.push({ label: '✨ Try Dark Fantasy Choco Fills', query: 'Dark Fantasy' });
+    }
+    if (catKeys.some(k => k.includes('electronics'))) {
+      suggestions.push({ label: '✨ Try Fast 20W Charger Adaptor', query: 'Charger' });
+      suggestions.push({ label: '✨ Try Ambrane 10000mAh Power Bank', query: 'Power Bank' });
+    }
+
+    // Default cross-category suggestions if needed
+    if (suggestions.length < 4) {
+      suggestions.push({ label: '✨ Try Captain Zack Pet Shampoo', query: 'Pet Shampoo' });
+      suggestions.push({ label: '✨ Try Dolo 650mg Relief Tablets', query: 'Dolo' });
+      suggestions.push({ label: '✨ Try Noise Wireless Earbuds', query: 'Earbuds' });
+      suggestions.push({ label: '✨ Try Organic California Almonds', query: 'Almonds' });
+    }
+
+    return suggestions.slice(0, 4);
+  };
+
+  const historySuggestions = getOrderHistorySuggestions();
+
+  const handleChipClick = (chipQuery) => {
+    setSearchTerm(chipQuery);
   };
 
   // Filter matching products dynamically
@@ -81,7 +119,12 @@ export const SearchScreen = () => {
                     className="bg-[#E7F1EF] rounded-2xl p-3 flex flex-col justify-between border border-slate-100 shadow-card relative group cursor-pointer active:scale-[0.98] transition-transform"
                   >
                     <div className="w-full aspect-square bg-white rounded-xl overflow-hidden p-2 flex items-center justify-center mb-2">
-                      <img src={p.image} alt={p.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform" />
+                      <img 
+                        src={p.image} 
+                        alt={p.name} 
+                        onError={(e) => { e.target.src = getFallbackProductImage(p.name, p.categoryKey); }}
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
+                      />
                     </div>
 
                     <div>
@@ -106,30 +149,28 @@ export const SearchScreen = () => {
             )}
           </section>
         ) : (
-          /* Default Discovery Mode based on Household Personalization & Past Search/Order Context */
+          /* Default Discovery Mode based on Household Personalization & Order Context */
           <>
-            {/* Recent Orders & Context Suggestions */}
-            {orderedCatNames.length > 0 && (
-              <section className="bg-white p-3.5 rounded-2xl shadow-card border border-slate-100 space-y-2">
-                <div className="flex items-center gap-1.5 text-[#0C831F]">
-                  <span className="material-symbols-outlined text-[18px]">history</span>
-                  <span className="text-xs font-extrabold uppercase tracking-wider">Based on Your Order History</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {orderedCatNames.slice(0, 4).map((name, idx) => (
-                    <span 
-                      key={idx} 
-                      onClick={() => handleChipClick(name)}
-                      className="bg-[#E7F1EF] text-[#0C831F] text-[11px] font-extrabold px-3 py-1 rounded-full cursor-pointer hover:bg-[#0C831F] hover:text-white transition-colors"
-                    >
-                      ↺ Reorder {name}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            )}
+            {/* New Discovery Suggestions Based on Order History (No "Reorder" text!) */}
+            <section className="bg-white p-3.5 rounded-2xl shadow-card border border-slate-100 space-y-2">
+              <div className="flex items-center gap-1.5 text-[#0C831F]">
+                <span className="material-symbols-outlined text-[18px]">history</span>
+                <span className="text-xs font-extrabold uppercase tracking-wider">Based on Your Order History</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {historySuggestions.map((item, idx) => (
+                  <span 
+                    key={idx} 
+                    onClick={() => handleChipClick(item.query)}
+                    className="bg-[#E7F1EF] text-[#0C831F] text-[11px] font-extrabold px-3 py-1.5 rounded-full cursor-pointer hover:bg-[#0C831F] hover:text-white transition-colors shadow-xs"
+                  >
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+            </section>
 
-            {/* Popular & AI Recommended Search Chips */}
+            {/* Dynamic AI Recommended Search Chips per Household Context */}
             <section className="space-y-2">
               <h2 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
                 Trending for {householdData.name}
@@ -155,8 +196,8 @@ export const SearchScreen = () => {
                   <span className="material-symbols-outlined text-[#0C831F] text-[18px]">verified</span>
                   <span>Products Worth Trying</span>
                 </h2>
-                <span className="text-[10px] font-extrabold bg-[#0C831F] text-white px-2 py-0.5 rounded-full">
-                  AI DISCOVERY
+                <span className="text-[10px] font-extrabold bg-[#0C831F] text-white px-2 py-0.5 rounded-full uppercase">
+                  AI Discovery
                 </span>
               </div>
 
@@ -172,7 +213,12 @@ export const SearchScreen = () => {
                     </span>
 
                     <div className="w-full aspect-square bg-white rounded-xl overflow-hidden p-2 flex items-center justify-center mb-2">
-                      <img src={p.image} alt={p.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform" />
+                      <img 
+                        src={p.image} 
+                        alt={p.name} 
+                        onError={(e) => { e.target.src = getFallbackProductImage(p.name, p.categoryKey); }}
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
+                      />
                     </div>
 
                     <div>
