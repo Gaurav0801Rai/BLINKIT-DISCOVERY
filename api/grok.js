@@ -62,14 +62,15 @@ Suggest 4 brand new cross-category product discovery ideas for the search bar. D
 Return ONLY valid JSON matching this exact structure:
 {
   "reviews": [
-    { "user": "string", "rating": 5, "verified": true, "text": "string (1-2 sentences)", "date": "string" },
-    { "user": "string", "rating": 5, "verified": true, "text": "string (1-2 sentences)", "date": "string" },
-    { "user": "string", "rating": 4, "verified": true, "text": "string (1-2 sentences)", "date": "string" }
+    { "user": "string", "rating": 5, "verified": true, "text": "string (1-2 sentences)", "date": "27 Jul 2026" },
+    { "user": "string", "rating": 5, "verified": true, "text": "string (1-2 sentences)", "date": "26 Jul 2026" },
+    { "user": "string", "rating": 4, "verified": true, "text": "string (1-2 sentences)", "date": "25 Jul 2026" },
+    { "user": "string", "rating": 5, "verified": true, "text": "string (1-2 sentences)", "date": "24 Jul 2026" }
   ]
 }`;
 
       userPrompt = `Product: ${product.name || 'Grocery item'}, Category: ${product.categoryName || 'General'}, Price: ₹${product.price || 100}.
-Generate 3 short, realistic customer reviews highlighting category trust (freshness for food, performance for tech, genuine quality for beauty/pet). Do not include markdown code blocks.`;
+Generate 4 short, realistic customer reviews highlighting category trust (freshness for food, performance for tech, genuine quality for beauty/pet). All review dates MUST strictly be in 2026 (e.g. '27 Jul 2026', '26 Jul 2026'). Do not include markdown code blocks.`;
 
     } else {
       return res.status(400).json({ error: 'Invalid action' });
@@ -99,24 +100,17 @@ Generate 3 short, realistic customer reviews highlighting category trust (freshn
     }
 
     const data = await response.json();
-    const contentText = data.choices?.[0]?.message?.content || '{}';
-    
-    let parsedJson;
-    try {
-      parsedJson = JSON.parse(contentText);
-    } catch (e) {
-      // Clean possible markdown fences
-      const cleaned = contentText.replace(/```json/g, '').replace(/```/g, '').trim();
-      try {
-        parsedJson = JSON.parse(cleaned);
-      } catch (err) {
-        parsedJson = { rawContent: contentText };
-      }
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return res.status(500).json({ error: 'Empty completion from Groq AI', fallback: true });
     }
 
-    return res.status(200).json({ success: true, data: parsedJson });
+    const parsedData = JSON.parse(content);
+    return res.status(200).json({ success: true, data: parsedData });
 
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal server error', fallback: true });
+    console.error('[Groq API Handler Error]:', error);
+    return res.status(500).json({ error: error.message, fallback: true });
   }
 }

@@ -93,7 +93,7 @@ export async function fetchGrokSearchSuggestions({ pastOrders, householdData, fa
 }
 
 /**
- * 3. PRODUCT REVIEWS
+ * 3. PRODUCT REVIEWS (ALL DATED IN 2026)
  */
 export async function fetchGrokProductReviews(product) {
   if (!product) return [];
@@ -106,31 +106,42 @@ export async function fetchGrokProductReviews(product) {
   const grokData = await callGrokAPI(payload);
 
   if (grokData && Array.isArray(grokData.reviews) && grokData.reviews.length > 0) {
-    return grokData.reviews;
+    return grokData.reviews.map((r, i) => ({
+      ...r,
+      date: r.date && r.date.includes('2026') ? r.date : `2${7 - (i % 4)} Jul 2026`
+    }));
   }
 
-  // Instant Category-Appropriate Fallback Reviews
+  // Instant Category-Appropriate Fallback Reviews (ALL 2026 DATED)
   const cat = (product.categoryKey || '').toLowerCase();
 
   if (cat.includes('electronic')) {
     return [
-      { user: 'Rahul S., Verified Buyer', rating: 5, text: 'Ultra fast 8-minute delivery! Battery backup matches specs.', date: '2 days ago' },
-      { user: 'Priya M., Tech Reviewer', rating: 5, text: 'Genuine product in sealed packaging. Audio clarity is phenomenal.', date: 'Yesterday' }
+      { user: 'Rahul S., Verified Buyer', rating: 5, text: 'Ultra fast 8-minute delivery! Battery backup matches specs.', date: '27 Jul 2026' },
+      { user: 'Priya M., Tech Reviewer', rating: 5, text: 'Genuine product in sealed packaging. Audio clarity is phenomenal.', date: '26 Jul 2026' },
+      { user: 'Karan T., Verified Buyer', rating: 5, text: 'Compact build and fast Type-C charging support.', date: '25 Jul 2026' },
+      { user: 'Aman K., Verified Buyer', rating: 4, text: 'Great value for money, delivered in mint condition.', date: '24 Jul 2026' }
     ];
   } else if (cat.includes('pet')) {
     return [
-      { user: 'Ananya P., Pet Parent', rating: 5, text: 'My dog loved the kibbles immediately! Fresh batch with 2026 expiry.', date: '3 days ago' },
-      { user: 'Dr. Vikram, Vet Specialist', rating: 5, text: 'Balanced nutritional profile and vet-approved ingredients.', date: '1 week ago' }
+      { user: 'Ananya P., Pet Parent', rating: 5, text: 'My dog loved the kibbles immediately! Fresh batch with Oct 2027 expiry.', date: '27 Jul 2026' },
+      { user: 'Dr. Vikram, Vet Specialist', rating: 5, text: 'Balanced nutritional profile and vet-approved ingredients.', date: '26 Jul 2026' },
+      { user: 'Rohan D., Pet Parent', rating: 5, text: 'Gentle coat shampoo, anti-tick formula works like magic.', date: '25 Jul 2026' },
+      { user: 'Meera S., Verified Buyer', rating: 5, text: 'Fast delivery and leak-proof safety seal intact.', date: '24 Jul 2026' }
     ];
-  } else if (cat.includes('dairy') || cat.includes('veggie') || cat.includes('fruit')) {
+  } else if (cat.includes('dairy') || cat.includes('veggie') || cat.includes('fruit') || cat.includes('staple')) {
     return [
-      { user: 'Sunita K., Home Chef', rating: 5, text: 'Chilled delivery in cold bag! Super fresh farm harvest quality.', date: 'Today' },
-      { user: 'Amit V., Verified Buyer', rating: 5, text: 'Soft, unadulterated & packaged fresh this morning.', date: 'Yesterday' }
+      { user: 'Sunita K., Home Chef', rating: 5, text: 'Chilled delivery in cold bag! Super fresh farm harvest quality.', date: '27 Jul 2026' },
+      { user: 'Amit V., Verified Buyer', rating: 5, text: 'Soft, unadulterated & packaged fresh this morning at 4:30 AM.', date: '26 Jul 2026' },
+      { user: 'Kavita M., Verified Buyer', rating: 5, text: 'Crisp, naturally ripened produce with zero blemishes.', date: '25 Jul 2026' },
+      { user: 'Ramesh P., Daily Buyer', rating: 4, text: 'Best quality farm produce delivered consistently every morning.', date: '24 Jul 2026' }
     ];
   }
 
   return [
-    { user: 'Neha R., Verified Buyer', rating: 5, text: '100% genuine product delivered in under 8 minutes.', date: '2 days ago' },
-    { user: 'Siddharth M., Top Reviewer', rating: 5, text: 'Great quality and excellent value for money.', date: '4 days ago' }
+    { user: 'Neha R., Verified Buyer', rating: 5, text: '100% genuine product delivered in under 8 minutes.', date: '27 Jul 2026' },
+    { user: 'Siddharth M., Top Reviewer', rating: 5, text: 'Great quality and excellent value for money.', date: '26 Jul 2026' },
+    { user: 'Pooja G., Verified Buyer', rating: 5, text: 'Tamper-proof safety packaging, highly recommended.', date: '25 Jul 2026' },
+    { user: 'Vikram S., Verified Buyer', rating: 4, text: 'Fresh stock with long shelf life.', date: '24 Jul 2026' }
   ];
 }
