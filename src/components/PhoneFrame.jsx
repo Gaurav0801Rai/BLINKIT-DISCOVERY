@@ -2,12 +2,12 @@ import React from 'react';
 
 export const PhoneFrame = ({ children }) => {
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4 bg-[#F4F5F7] select-none overflow-hidden">
-      {/* Outer Phone Shell - Always slim, compact portrait mobile phone mockup */}
-      <div className="relative w-[340px] max-w-[94vw] h-[680px] max-h-[92vh] bg-white rounded-[40px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] border-[8px] border-[#1C1C1E] overflow-hidden flex flex-col transition-all duration-300">
+    <div className="relative w-full h-screen flex items-center justify-center sm:p-4 bg-[#EAEAEA] sm:bg-[#F4F5F7] select-none overflow-hidden">
+      {/* Outer Phone Shell - Tall, elegant 19.5:9 flagship mobile layout */}
+      <div className="relative w-full sm:w-[370px] sm:max-w-[94vw] h-full sm:h-[800px] sm:max-h-[94vh] bg-white sm:rounded-[44px] shadow-none sm:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] border-none sm:border-[8px] border-[#1C1C1E] overflow-hidden flex flex-col transition-all duration-300">
         
-        {/* Dynamic Island / Top Speaker Notch */}
-        <div className="flex absolute top-0 left-1/2 -translate-x-1/2 w-26 h-4 bg-[#1C1C1E] rounded-b-xl z-50 items-center justify-center gap-1.5">
+        {/* Dynamic Island / Top Speaker Notch (Visible on Desktop Mockup) */}
+        <div className="hidden sm:flex absolute top-0 left-1/2 -translate-x-1/2 w-28 h-4 bg-[#1C1C1E] rounded-b-xl z-50 items-center justify-center gap-1.5">
           <div className="w-8 h-1 bg-[#2C2C2E] rounded-full"></div>
           <div className="w-2 h-2 bg-[#2C2C2E] rounded-full border border-[#3A3A3C]"></div>
         </div>
