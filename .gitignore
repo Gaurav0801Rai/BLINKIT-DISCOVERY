@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+build
+
+# Environment & IDE
+.env
+.env.local
+.DS_Store
+.idea
+.vscode
+
+# Antigravity artifacts
+.gemini
