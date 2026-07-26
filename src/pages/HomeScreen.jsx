@@ -11,11 +11,35 @@ export const HomeScreen = () => {
     unlockedCategories = [] 
   } = useApp();
 
-  // Dynamic Personalization Strip for Household Profile
+  // Keys of categories already purchased/unlocked by the user
+  const unlockedKeys = unlockedCategories.map(c => c.key || '');
+
+  // Base suggestions from Household Context
   const householdSuggestions = householdData.newCategories || [
     { title: 'Pet Care Essentials', key: 'pet-care', image: 'https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?w=400&auto=format&fit=crop&q=80' },
     { title: 'Baby Care & Diapers', key: 'baby-care', image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=80' }
   ];
+
+  // Full Trial Candidate Pool for dynamic monthly rotation
+  const fullTrialPool = [
+    ...householdSuggestions,
+    { title: 'Electronics & Audio', key: 'electronics', image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&auto=format&fit=crop&q=80' },
+    { title: 'Cosmetics & Beauty', key: 'cosmetics', image: 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400&auto=format&fit=crop&q=80' },
+    { title: 'Pharmacy & Health', key: 'pharma', image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&auto=format&fit=crop&q=80' },
+    { title: 'Gym & Supplements', key: 'wellness', image: 'https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=400&auto=format&fit=crop&q=80' },
+    { title: 'Fashion Jewellery', key: 'jewellery', image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&auto=format&fit=crop&q=80' },
+    { title: 'Books & Bestsellers', key: 'books', image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80' }
+  ];
+
+  // DYNAMIC UNBOUGHT CATEGORIES FILTER: Filter out categories user has already bought & unlocked
+  const unboughtSuggestions = fullTrialPool
+    .filter(cat => !unlockedKeys.includes(cat.key))
+    .slice(0, 2);
+
+  // Fallback if all trial categories are unlocked
+  const activeHouseholdSuggestions = unboughtSuggestions.length > 0 
+    ? unboughtSuggestions 
+    : householdSuggestions;
 
   // Master Categories List for Shop by Category
   const mainCategories = [
@@ -76,7 +100,7 @@ export const HomeScreen = () => {
       </div>
 
       <main className="px-4 py-4 space-y-5">
-        {/* Section 1: "New for your household" (AI Personalization Strip) */}
+        {/* Section 1: "New for your household" (AI Personalization Strip - Unbought Categories Only) */}
         <section className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-3">
           <div className="flex justify-between items-center border-b border-slate-100 pb-2">
             <div>
@@ -85,7 +109,7 @@ export const HomeScreen = () => {
                 <span>New for your household</span>
               </h2>
               <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                AI Suggestions for <span className="font-extrabold text-[#0C831F]">{householdData.name}</span>
+                Unexplored categories for <span className="font-extrabold text-[#0C831F]">{householdData.name}</span>
               </p>
             </div>
             <button 
@@ -99,7 +123,7 @@ export const HomeScreen = () => {
 
           {/* Household Categories Cards Grid (100% Full Name Display) */}
           <div className="grid grid-cols-2 gap-3">
-            {householdSuggestions.map((cat, idx) => (
+            {activeHouseholdSuggestions.map((cat, idx) => (
               <div 
                 key={idx}
                 onClick={() => openCategory(cat.key || 'pet-care')}

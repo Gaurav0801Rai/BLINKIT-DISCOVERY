@@ -72,14 +72,22 @@ export const SearchScreen = () => {
     setSearchTerm(chipQuery);
   };
 
-  // Filter matching products dynamically
-  const matchingProducts = searchTerm.trim() === '' 
-    ? [] 
-    : PRODUCTS_DATABASE.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+  // MULTI-WORD TOKENIZED FUZZY SEARCH MATCHING
+  const getMatchingProducts = () => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return [];
+
+    // Split search query into distinct word tokens (e.g. "Amul Milk" -> ["amul", "milk"])
+    const queryTokens = query.split(/\s+/).filter(Boolean);
+
+    return PRODUCTS_DATABASE.filter(p => {
+      const targetText = `${p.name} ${p.brand || ''} ${p.categoryName || ''} ${p.categoryKey || ''}`.toLowerCase();
+      // Ensure EVERY word token exists somewhere inside the target product text
+      return queryTokens.every(token => targetText.includes(token));
+    });
+  };
+
+  const matchingProducts = getMatchingProducts();
 
   // Discovery products worth trying when user hasn't searched anything yet
   const discoveryProducts = PRODUCTS_DATABASE.slice(0, 6);
@@ -118,16 +126,20 @@ export const SearchScreen = () => {
       <main className="px-4 py-4 space-y-5">
         {/* Search Results Mode */}
         {searchTerm.trim() !== '' ? (
-          <section className="space-y-3">
-            <h2 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+          <div className="space-y-3">
+            <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
               Search Results ({matchingProducts.length})
             </h2>
 
             {matchingProducts.length === 0 ? (
-              <div className="bg-white p-8 rounded-2xl text-center text-slate-400 shadow-card">
-                <span className="material-symbols-outlined text-[36px] block mb-1">search_off</span>
-                <p className="text-xs font-bold text-[#1F1B12]">No products found matching "{searchTerm}"</p>
-                <p className="text-[11px] mt-1">Try searching for Milk, Atta, Pedigree, or Earbuds.</p>
+              <div className="bg-white p-8 rounded-2xl text-center space-y-3 shadow-card">
+                <span className="material-symbols-outlined text-[48px] text-slate-300">search_off</span>
+                <h3 className="text-sm font-extrabold text-[#1F1B12]">
+                  No products found matching "{searchTerm}"
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Try searching for Milk, Atta, Pedigree, or Earbuds.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
@@ -135,138 +147,125 @@ export const SearchScreen = () => {
                   <div 
                     key={p.id}
                     onClick={() => openProduct(p)}
-                    className="bg-[#E7F1EF] rounded-2xl p-3 flex flex-col justify-between border border-slate-100 shadow-card relative group cursor-pointer active:scale-[0.98] transition-transform"
+                    className="bg-white p-3 rounded-2xl shadow-card border border-slate-100 flex flex-col justify-between cursor-pointer group active:scale-95 transition-transform"
                   >
-                    <div className="w-full aspect-square bg-white rounded-xl overflow-hidden p-2 flex items-center justify-center mb-2">
-                      <img 
-                        src={p.image} 
-                        alt={p.name} 
-                        onError={(e) => { e.target.src = getFallbackProductImage(p.name, p.categoryKey); }}
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
-                      />
-                    </div>
-
                     <div>
-                      <h3 className="text-xs font-extrabold text-[#1F1B12] line-clamp-2 leading-snug min-h-[32px]">
+                      <div className="w-full h-28 bg-[#F7F7F5] rounded-xl p-2 flex items-center justify-center overflow-hidden">
+                        <img 
+                          src={p.image} 
+                          alt={p.name} 
+                          onError={(e) => { e.target.src = getFallbackProductImage(p.name, p.categoryKey); }}
+                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform" 
+                        />
+                      </div>
+
+                      <span className="text-[10px] font-extrabold text-[#0C831F] bg-[#E7F1EF] px-2 py-0.5 rounded-full uppercase mt-2 inline-block">
+                        {p.categoryName || p.categoryKey}
+                      </span>
+
+                      <h4 className="text-xs font-extrabold text-[#1F1B12] mt-1 line-clamp-2 leading-snug">
                         {p.name}
-                      </h3>
-                      <p className="text-[11px] text-[#666158] font-medium mb-2">{p.weight}</p>
+                      </h4>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">{p.weight}</p>
                     </div>
 
-                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-200/60">
-                      <span className="text-sm font-extrabold text-[#1F1B12]">₹{p.price}</span>
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                      <span className="text-xs font-extrabold text-[#1F1B12]">₹{p.price}</span>
                       <button 
-                        onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                        className="bg-white border-2 border-[#0C831F] text-[#0C831F] hover:bg-[#0C831F] hover:text-white font-extrabold text-xs py-1 px-3 rounded-lg active:scale-95 transition-all shadow-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(p);
+                        }}
+                        className="bg-[#0C831F] text-white text-[11px] font-extrabold px-3 py-1.5 rounded-lg active:scale-90 shadow-xs uppercase"
                       >
-                        ADD
+                        + ADD
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </section>
+          </div>
         ) : (
-          /* Default Discovery Mode based on Household Personalization & Order Context */
-          <>
-            {/* Grok AI "✨ Explore Something New" Discovery Chips */}
-            <section className="bg-white p-3.5 rounded-2xl shadow-card border border-slate-100 space-y-2">
-              <div className="flex items-center justify-between text-[#0C831F]">
-                <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
-                  <span className="text-xs font-extrabold uppercase tracking-wider">✨ Explore Something New</span>
-                </div>
-                <span className="text-[9px] font-extrabold bg-[#0C831F] text-white px-2 py-0.5 rounded-full uppercase">
-                  Grok AI
+          /* Empty Search Mode: Show Grok Discovery Chips & Popular Queries */
+          <div className="space-y-5">
+            {/* GROK AI EXPLORE SOMETHING NEW CHIPS */}
+            <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-3">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                <h3 className="text-xs font-extrabold text-[#1F1B12] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[#0C831F] text-[18px]">auto_awesome</span>
+                  <span>Explore Something New</span>
+                </h3>
+                <span className="text-[9px] font-extrabold text-[#0C831F] bg-[#E7F1EF] px-2 py-0.5 rounded-full">
+                  ✨ Grok AI Personalization
                 </span>
               </div>
 
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {activeChips.map((item, idx) => (
-                  <span 
-                    key={idx} 
-                    onClick={() => handleChipClick(item.query || item.label)}
-                    className="bg-[#E7F1EF] text-[#0C831F] text-[11px] font-extrabold px-3 py-1.5 rounded-full cursor-pointer hover:bg-[#0C831F] hover:text-white transition-colors shadow-xs"
-                  >
-                    {item.label}
-                  </span>
-                ))}
-              </div>
-            </section>
-
-            {/* Dynamic AI Recommended Search Chips per Household Context */}
-            <section className="space-y-2">
-              <h2 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                Trending for {householdData.name}
-              </h2>
               <div className="flex flex-wrap gap-2">
-                {popularChips.map((chip, idx) => (
-                  <button 
+                {activeChips.map((chip, idx) => (
+                  <button
                     key={idx}
-                    onClick={() => handleChipClick(chip)}
-                    className="bg-white hover:bg-[#E7F1EF] hover:text-[#0C831F] text-[#1F1B12] border border-slate-200 text-xs font-semibold px-3 py-1.5 rounded-full shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                    onClick={() => handleChipClick(chip.query || chip.label.replace('✨ Try ', ''))}
+                    className="bg-[#E7F1EF] hover:bg-[#0C831F] text-[#0C831F] hover:text-white font-extrabold text-xs px-3 py-2 rounded-xl transition-all border border-[#0C831F]/30 active:scale-95 shadow-xs flex items-center gap-1"
                   >
-                    <span className="material-symbols-outlined text-[14px] text-[#0C831F]">auto_awesome</span>
-                    <span>{chip}</span>
+                    <span>{chip.label}</span>
                   </button>
                 ))}
               </div>
-            </section>
+            </div>
 
-            {/* Products Worth Trying Section (AI Discovery) */}
-            <section className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h2 className="text-sm font-extrabold text-[#1F1B12] flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[#0C831F] text-[18px]">verified</span>
-                  <span>Products Worth Trying</span>
-                </h2>
-                <span className="text-[10px] font-extrabold bg-[#0C831F] text-white px-2 py-0.5 rounded-full uppercase">
-                  AI Discovery
-                </span>
+            {/* POPULAR SEARCHES FOR ACTIVE PROFILE */}
+            <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-2.5">
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                Trending in {householdData.name}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {popularChips.map((chip, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleChipClick(chip)}
+                    className="bg-[#F7F7F5] hover:bg-slate-200 text-[#1F1B12] font-bold text-xs px-3 py-1.5 rounded-full border border-slate-200 active:scale-95 transition-all"
+                  >
+                    {chip}
+                  </button>
+                ))}
               </div>
+            </div>
 
+            {/* QUICK DISCOVERY CAROUSEL */}
+            <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-3">
+              <h3 className="text-xs font-extrabold text-[#1F1B12]">Recommended for Instant Delivery</h3>
               <div className="grid grid-cols-2 gap-3">
                 {discoveryProducts.map(p => (
                   <div 
                     key={p.id}
                     onClick={() => openProduct(p)}
-                    className="bg-[#E7F1EF] rounded-2xl p-3 flex flex-col justify-between border border-slate-100 shadow-card relative group cursor-pointer active:scale-[0.98] transition-transform"
+                    className="bg-[#F7F7F5] p-2.5 rounded-xl border border-slate-100 cursor-pointer group hover:border-[#0C831F]/40 transition-all flex flex-col justify-between"
                   >
-                    <span className="absolute top-2 left-2 bg-[#F8CB46] text-[#1F1B12] text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-xs z-10">
-                      {p.discount || 'TOP RATED'}
-                    </span>
-
-                    <div className="w-full aspect-square bg-white rounded-xl overflow-hidden p-2 flex items-center justify-center mb-2">
-                      <img 
-                        src={p.image} 
-                        alt={p.name} 
-                        onError={(e) => { e.target.src = getFallbackProductImage(p.name, p.categoryKey); }}
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform" 
-                      />
+                    <div className="w-full h-20 bg-white rounded-lg p-1 flex items-center justify-center overflow-hidden">
+                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
                     </div>
-
-                    <div>
-                      <h3 className="text-xs font-extrabold text-[#1F1B12] line-clamp-2 leading-snug min-h-[32px]">
-                        {p.name}
-                      </h3>
-                      <p className="text-[11px] text-[#666158] font-medium mb-2">{p.weight}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-200/60">
-                      <span className="text-sm font-extrabold text-[#1F1B12]">₹{p.price}</span>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                        className="bg-[#0C831F] text-white hover:bg-[#0A6E1A] font-extrabold text-xs py-1 px-3 rounded-lg active:scale-95 transition-all shadow-xs"
-                      >
-                        ADD
-                      </button>
+                    <div className="mt-2">
+                      <h4 className="text-xs font-extrabold text-[#1F1B12] line-clamp-1">{p.name}</h4>
+                      <p className="text-[10px] text-slate-400">{p.weight}</p>
+                      <div className="flex justify-between items-center mt-1 pt-1 border-t border-slate-200/50">
+                        <span className="text-xs font-extrabold text-[#1F1B12]">₹{p.price}</span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(p);
+                          }}
+                          className="text-[#0C831F] font-bold text-[10px]"
+                        >
+                          + ADD
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            </section>
-          </>
+            </div>
+          </div>
         )}
       </main>
     </div>
