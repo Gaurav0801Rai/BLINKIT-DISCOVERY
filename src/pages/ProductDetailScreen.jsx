@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { TopHeader } from '../components/Navigation';
 import { getFallbackProductImage } from '../data/productsData';
+import { fetchGrokProductReviews } from '../services/grokService';
 
 export const ProductDetailScreen = () => {
   const { 
@@ -11,6 +12,22 @@ export const ProductDetailScreen = () => {
     updateQuantity, 
     setActiveTab 
   } = useApp();
+
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadReviews() {
+      if (selectedProduct) {
+        const grokReviews = await fetchGrokProductReviews(selectedProduct);
+        if (isMounted && grokReviews && grokReviews.length > 0) {
+          setReviews(grokReviews);
+        }
+      }
+    }
+    loadReviews();
+    return () => { isMounted = false; };
+  }, [selectedProduct?.id]);
 
   if (!selectedProduct) {
     return (
@@ -111,7 +128,7 @@ export const ProductDetailScreen = () => {
           </div>
         </div>
 
-        {/* TRUST & CONFIDENCE SIGNALS CARD (Inspired by Reference App Structure) */}
+        {/* TRUST & CONFIDENCE SIGNALS CARD WITH GROK REVIEWS */}
         <div className="bg-[#E7F1EF] border border-[#0C831F]/30 p-4 rounded-2xl shadow-card space-y-3">
           <div className="flex items-center justify-between border-b border-[#0C831F]/20 pb-2">
             <span className="text-xs font-extrabold text-[#0C831F] uppercase tracking-wider flex items-center gap-1.5">
@@ -127,66 +144,29 @@ export const ProductDetailScreen = () => {
             <span className="font-extrabold text-[#0C831F]">{repeatPct}% of verified buyers</span> reorder this product within 30 days on Blinkit.
           </p>
 
-          {/* Review Highlights */}
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-extrabold text-[#1F1B12] uppercase tracking-wider block">Customer Review Highlights</span>
-            <div className="bg-white/90 p-2.5 rounded-xl border border-white text-xs space-y-1">
-              <div className="flex items-center gap-1.5 text-[#0C831F] font-bold text-[11px]">
-                <span className="material-symbols-outlined text-[14px]">bolt</span>
-                <span>8-Min Superfast Delivery</span>
-              </div>
-              <p className="text-slate-600 italic text-[11px]">"Received item in under 8 minutes, fresh and neatly packaged!" — Verified Buyer</p>
+          {/* Customer Reviews Section */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-[#1F1B12] uppercase tracking-wider block">Customer Reviews</span>
+              <span className="text-[9px] font-extrabold text-[#0C831F] bg-white px-2 py-0.5 rounded-full">
+                ✨ Grok AI Verified
+              </span>
             </div>
-            <div className="bg-white/90 p-2.5 rounded-xl border border-white text-xs space-y-1">
-              <div className="flex items-center gap-1.5 text-[#0C831F] font-bold text-[11px]">
-                <span className="material-symbols-outlined text-[14px]">thumb_up</span>
-                <span>Quality & Authenticity Assured</span>
+
+            {reviews.map((rev, idx) => (
+              <div key={idx} className="bg-white/90 p-2.5 rounded-xl border border-white text-xs space-y-1">
+                <div className="flex items-center justify-between text-[#0C831F] font-bold text-[11px]">
+                  <div className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">thumb_up</span>
+                    <span>{rev.user || 'Verified Buyer'}</span>
+                  </div>
+                  <span className="text-slate-400 text-[10px] font-normal">{rev.date || 'Recently'}</span>
+                </div>
+                <p className="text-slate-600 italic text-[11px] leading-snug">"{rev.text}"</p>
               </div>
-              <p className="text-slate-600 italic text-[11px]">"100% genuine sealed product. Exactly as shown!" — Verified Buyer</p>
-            </div>
+            ))}
           </div>
         </div>
-
-        {/* Category Specific Guarantee Fields */}
-        {p.freshnessInfo && (
-          <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-2.5">
-            <div className="flex items-center gap-2 text-[#0C831F]">
-              <span className="material-symbols-outlined text-[20px]">eco</span>
-              <span className="text-xs font-extrabold uppercase tracking-wider">Freshness & Storage Info</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-[#F7F7F5] p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 font-bold uppercase block">Harvest / Packed Date</span>
-                <span className="font-extrabold text-[#1F1B12]">{p.freshnessInfo.harvestDate}</span>
-              </div>
-              <div className="bg-[#F7F7F5] p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 font-bold uppercase block">Freshness Shelf Life</span>
-                <span className="font-extrabold text-[#0C831F]">{p.freshnessInfo.bestBefore}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {p.electronicsInfo && (
-          <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-2.5">
-            <div className="flex items-center gap-2 text-[#0C831F]">
-              <span className="material-symbols-outlined text-[20px]">build</span>
-              <span className="text-xs font-extrabold uppercase tracking-wider">Warranty & Replacement</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-[#F7F7F5] p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 font-bold uppercase block">Brand Warranty</span>
-                <span className="font-extrabold text-[#1F1B12]">{p.electronicsInfo.warranty}</span>
-              </div>
-              <div className="bg-[#F7F7F5] p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-400 font-bold uppercase block">Return Guarantee</span>
-                <span className="font-extrabold text-[#0C831F]">{p.electronicsInfo.returns}</span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Product Description */}
         <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-1">

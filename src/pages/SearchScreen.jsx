@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { PRODUCTS_DATABASE, getFallbackProductImage } from '../data/productsData';
+import { fetchGrokSearchSuggestions } from '../services/grokService';
 
 export const SearchScreen = () => {
   const { setActiveTab, openProduct, addToCart, householdData, ordersHistory } = useApp();
@@ -8,7 +9,7 @@ export const SearchScreen = () => {
 
   const popularChips = (householdData.searchChips || ['Pet Care', 'Baby Care', 'Cosmetics', 'Milk', 'Atta', 'Earbuds']);
 
-  // Dynamic cross-category discovery suggestions based on order history
+  // Dynamic fallback suggestions based on order history
   const getOrderHistorySuggestions = () => {
     if (ordersHistory.length === 0) {
       return [
@@ -36,7 +37,6 @@ export const SearchScreen = () => {
       suggestions.push({ label: '✨ Try Ambrane 10000mAh Power Bank', query: 'Power Bank' });
     }
 
-    // Default cross-category suggestions if needed
     if (suggestions.length < 4) {
       suggestions.push({ label: '✨ Try Captain Zack Pet Shampoo', query: 'Pet Shampoo' });
       suggestions.push({ label: '✨ Try Dolo 650mg Relief Tablets', query: 'Dolo' });
@@ -47,7 +47,26 @@ export const SearchScreen = () => {
     return suggestions.slice(0, 4);
   };
 
-  const historySuggestions = getOrderHistorySuggestions();
+  const defaultSuggestions = getOrderHistorySuggestions();
+  const [grokChips, setGrokChips] = useState(defaultSuggestions);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadGrokChips() {
+      const result = await fetchGrokSearchSuggestions({
+        pastOrders: ordersHistory,
+        householdData,
+        fallbackChips: defaultSuggestions
+      });
+      if (isMounted && result && result.length > 0) {
+        setGrokChips(result);
+      }
+    }
+    loadGrokChips();
+    return () => { isMounted = false; };
+  }, [householdData.id, ordersHistory.length]);
+
+  const activeChips = grokChips || defaultSuggestions;
 
   const handleChipClick = (chipQuery) => {
     setSearchTerm(chipQuery);
@@ -151,17 +170,23 @@ export const SearchScreen = () => {
         ) : (
           /* Default Discovery Mode based on Household Personalization & Order Context */
           <>
-            {/* New Discovery Suggestions Based on Order History (No "Reorder" text!) */}
+            {/* Grok AI "✨ Explore Something New" Discovery Chips */}
             <section className="bg-white p-3.5 rounded-2xl shadow-card border border-slate-100 space-y-2">
-              <div className="flex items-center gap-1.5 text-[#0C831F]">
-                <span className="material-symbols-outlined text-[18px]">history</span>
-                <span className="text-xs font-extrabold uppercase tracking-wider">Based on Your Order History</span>
+              <div className="flex items-center justify-between text-[#0C831F]">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                  <span className="text-xs font-extrabold uppercase tracking-wider">✨ Explore Something New</span>
+                </div>
+                <span className="text-[9px] font-extrabold bg-[#0C831F] text-white px-2 py-0.5 rounded-full uppercase">
+                  Grok AI
+                </span>
               </div>
+
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {historySuggestions.map((item, idx) => (
+                {activeChips.map((item, idx) => (
                   <span 
                     key={idx} 
-                    onClick={() => handleChipClick(item.query)}
+                    onClick={() => handleChipClick(item.query || item.label)}
                     className="bg-[#E7F1EF] text-[#0C831F] text-[11px] font-extrabold px-3 py-1.5 rounded-full cursor-pointer hover:bg-[#0C831F] hover:text-white transition-colors shadow-xs"
                   >
                     {item.label}
@@ -232,7 +257,7 @@ export const SearchScreen = () => {
                       <span className="text-sm font-extrabold text-[#1F1B12]">₹{p.price}</span>
                       <button 
                         onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                        className="bg-white border-2 border-[#0C831F] text-[#0C831F] hover:bg-[#0C831F] hover:text-white font-extrabold text-xs py-1 px-3 rounded-lg active:scale-95 transition-all shadow-xs"
+                        className="bg-[#0C831F] text-white hover:bg-[#0A6E1A] font-extrabold text-xs py-1 px-3 rounded-lg active:scale-95 transition-all shadow-xs"
                       >
                         ADD
                       </button>

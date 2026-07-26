@@ -64,54 +64,57 @@ export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('home');
   const [tabHistory, setTabHistory] = useState(['home']);
   const [selectedCategoryKey, setSelectedCategoryKey] = useState('fresh-veggies');
-  const [selectedProduct, setSelectedProduct] = useState(PRODUCTS_DATABASE[0]);
-  const [currentHouseholdId, setCurrentHouseholdId] = useState('family');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  
   const [cart, setCart] = useState(INITIAL_CART);
+  const [currentHouseholdId, setCurrentHouseholdId] = useState('family');
   const [paymentMethod, setPaymentMethod] = useState('upi');
-  
-  const [unlockedCategories, setUnlockedCategories] = useState([
-    { id: 'dairy-bread', title: 'Dairy, Bread & Eggs', key: 'dairy-bread', date: 'Unlocked yesterday' }
-  ]);
-  
+
   const [ordersHistory, setOrdersHistory] = useState([]);
 
+  // Unlocked Categories State
+  const [unlockedCategories, setUnlockedCategories] = useState([
+    { key: 'dairy-bread', title: 'Dairy & Bread' },
+    { key: 'fresh-veggies', title: 'Vegetables' },
+    { key: 'staples', title: 'Atta & Rice' }
+  ]);
+
+  // AI Feedback Reaction States
   const [dislikedItemIds, setDislikedItemIds] = useState([]);
-  const [userPreferences, setUserPreferences] = useState([]);
   const [dislikedNudgeIds, setDislikedNudgeIds] = useState([]);
-  const [toast, setToast] = useState(null);
-  const [coachStep, setCoachStep] = useState(1);
+  const [userPreferences, setUserPreferences] = useState([]);
+
+  // Toast Notification State
+  const [toastMessage, setToastMessage] = useState(null);
 
   const householdData = HOUSEHOLDS[currentHouseholdId] || HOUSEHOLDS.family;
 
-  const navigateToTab = (newTab) => {
-    setTabHistory(prev => {
-      if (prev[prev.length - 1] === newTab) return prev;
-      return [...prev, newTab];
-    });
-    setActiveTab(newTab);
+  const showToast = (message, icon = 'info') => {
+    setToastMessage({ message, icon });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const navigateToTab = (tab) => {
+    if (tab !== activeTab) {
+      setTabHistory(prev => [...prev, tab]);
+      setActiveTab(tab);
+    }
   };
 
   const goBack = () => {
-    setTabHistory(prev => {
-      if (prev.length > 1) {
-        const nextHistory = [...prev];
-        nextHistory.pop();
-        const previous = nextHistory[nextHistory.length - 1];
-        setActiveTab(previous || 'home');
-        return nextHistory;
-      }
+    if (tabHistory.length > 1) {
+      const newHistory = [...tabHistory];
+      newHistory.pop();
+      const prevTab = newHistory[newHistory.length - 1];
+      setTabHistory(newHistory);
+      setActiveTab(prevTab);
+    } else {
       setActiveTab('home');
-      return ['home'];
-    });
+    }
   };
 
-  const showToast = (message, icon = 'info') => {
-    setToast({ message, icon, id: Date.now() });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const openCategory = (categoryKey) => {
-    setSelectedCategoryKey(categoryKey);
+  const openCategory = (catKey) => {
+    setSelectedCategoryKey(catKey);
     navigateToTab('category-listing');
   };
 
@@ -122,7 +125,7 @@ export const AppProvider = ({ children }) => {
 
   const addToCart = (item) => {
     setCart(prev => {
-      const existingIndex = prev.findIndex(i => i.id === item.id);
+      const existingIndex = prev.findIndex(i => i.id === item.id || i.name === item.name);
       if (existingIndex > -1) {
         const updated = [...prev];
         updated[existingIndex].qty += 1;
@@ -130,7 +133,18 @@ export const AppProvider = ({ children }) => {
       }
       return [...prev, { ...item, qty: 1 }];
     });
-    showToast(`Added ${item.name} to cart!`, 'shopping_cart');
+
+    // Auto unlock category if new
+    if (item.categoryKey) {
+      setUnlockedCategories(prev => {
+        if (!prev.some(c => c.key === item.categoryKey)) {
+          return [...prev, { key: item.categoryKey, title: item.categoryName || item.categoryKey }];
+        }
+        return prev;
+      });
+    }
+
+    showToast(`Added ${item.name || item.title} to cart!`, 'shopping_cart');
   };
 
   const updateQuantity = (id, delta) => {
@@ -180,94 +194,115 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // STRICT CROSS-CATEGORY CHECKOUT NUDGE GENERATOR
+  // STRICT CROSS-CATEGORY CHECKOUT NUDGE GENERATOR (DYNAMIC ROTATION & UNBOUGHT CANDIDATE SELECTION)
   const getDynamicCheckoutNudge = () => {
-    if (cart.length === 0) {
-      return {
+    const cartCatKeys = cart.map(i => i.categoryKey || '');
+    const cartNames = cart.map(i => (i.name || '').toLowerCase());
+    const cartIds = cart.map(i => i.id);
+
+    const candidateNudges = [
+      {
         id: 'nudge_shampoo',
         title: 'Captain Zack Anti-Tick Pet Shampoo 200ml',
         categoryKey: 'pet-toys',
         categoryName: 'Pet Grooming',
         price: 240,
         image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&auto=format&fit=crop&q=80',
-        reason: '"Why this? Pet households order Anti-Tick Grooming Shampoo with weekly cart items"'
-      };
-    }
-
-    const lastItem = cart[cart.length - 1];
-    const cartCatKeys = cart.map(i => i.categoryKey || '');
-    const cartNames = cart.map(i => (i.name || '').toLowerCase());
-
-    // 1. PET CARE IN CART -> Recommend Pet Toys/Grooming (pet-toys)
-    if (cartCatKeys.some(k => k && k.includes('pet-care'))) {
-      if (!cartCatKeys.includes('pet-toys') && !dislikedNudgeIds.includes('nudge_shampoo')) {
-        return {
-          id: 'nudge_shampoo',
-          title: 'Captain Zack Anti-Tick Pet Shampoo 200ml',
-          categoryKey: 'pet-toys',
-          categoryName: 'Pet Grooming',
-          price: 240,
-          image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&auto=format&fit=crop&q=80',
-          reason: `"Why this? You have ${lastItem?.name || 'Pet Food'} in cart — 89% of pet parents pair food with Grooming Shampoo"`
-        };
+        reason: '"Why this? Pet households order Anti-Tick Shampoo with weekly cart items"'
+      },
+      {
+        id: 'nudge_dark_fantasy',
+        title: 'Sunfeast Dark Fantasy Choco Fills 75g',
+        categoryKey: 'bakery',
+        categoryName: 'Bakery & Biscuits',
+        price: 85,
+        image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&auto=format&fit=crop&q=80',
+        reason: '"Why this? 87% of tea & coffee drinkers pair their brew with Dark Fantasy Choco Fills"'
+      },
+      {
+        id: 'nudge_earbuds',
+        title: 'Noise VS102 Truly Wireless Earbuds',
+        categoryKey: 'electronics',
+        categoryName: 'Electronics & Audio',
+        price: 999,
+        image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&auto=format&fit=crop&q=80',
+        reason: '"Why this? Top rated audio gadget choice for fast 8-minute delivery"'
+      },
+      {
+        id: 'nudge_avocado',
+        title: 'Hass Fresh Avocados 2 Pack',
+        categoryKey: 'fresh-fruits',
+        categoryName: 'Exotic Produce',
+        price: 199,
+        image: 'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=400&auto=format&fit=crop&q=80',
+        reason: '"Why this? Fresh organic nutrient-rich avocados pairs with healthy home carts"'
+      },
+      {
+        id: 'nudge_dolo',
+        title: 'Dolo 650mg Paracetamol Tablets 15s',
+        categoryKey: 'pharma',
+        categoryName: 'Pharmacy & Health',
+        price: 32,
+        image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&auto=format&fit=crop&q=80',
+        reason: '"Why this? Essential household first-aid medicine for instant 8-min delivery"'
       }
+    ];
+
+    // Filter out candidates ALREADY IN CART or DISLIKED
+    const validCandidates = candidateNudges.filter(n => 
+      !cartIds.includes(n.id) &&
+      !cartNames.some(cn => cn.includes(n.title.toLowerCase())) &&
+      !dislikedNudgeIds.includes(n.id)
+    );
+
+    if (validCandidates.length > 0) {
+      return validCandidates[0];
     }
 
-    // 2. TEA / COFFEE IN CART -> Suggest Bakery (bakery) or Electronics
-    if (cartCatKeys.some(k => k && k.includes('tea-coffee')) || cartNames.some(n => n.includes('coffee') || n.includes('tea') || n.includes('nescafe'))) {
-      if (!cartCatKeys.includes('bakery') && !dislikedNudgeIds.includes('nudge_dark_fantasy')) {
-        return {
-          id: 'nudge_dark_fantasy',
-          title: 'Sunfeast Dark Fantasy Choco Fills 75g',
-          categoryKey: 'bakery',
-          categoryName: 'Bakery & Biscuits',
-          price: 85,
-          image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&auto=format&fit=crop&q=80',
-          reason: `"Why this? You have ${lastItem?.name || 'Coffee'} in cart — 87% of coffee drinkers pair their brew with Dark Fantasy Choco Fills"`
-        };
-      }
-    }
-
-    // DEFAULT FALLBACK
-    return {
-      id: 'nudge_shampoo',
-      title: 'Captain Zack Anti-Tick Pet Shampoo 200ml',
-      categoryKey: 'pet-toys',
-      categoryName: 'Pet Grooming',
-      price: 240,
-      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&auto=format&fit=crop&q=80',
-      reason: `"Why this? You have ${lastItem?.name || 'Cart items'} in cart — 89% of households add Pet Grooming Shampoo"`
-    };
+    return candidateNudges[0];
   };
 
   const placeOrder = () => {
-    const newOrderId = `BL-${Math.floor(10000 + Math.random() * 90000)}`;
-    const newOrderRecord = {
-      id: newOrderId,
-      date: 'Just now',
-      status: 'Delivered in 8 mins ⚡',
-      itemsCount: cartItemsCount,
-      total: grandTotal,
-      items: [...cart]
+    if (cart.length === 0) return;
+
+    const newOrder = {
+      orderId: `BLK-${Math.floor(100000 + Math.random() * 900000)}`,
+      date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      items: [...cart],
+      grandTotal,
+      paymentMethod: paymentMethod.toUpperCase(),
+      householdName: householdData.name,
+      status: 'Delivered in 8 Mins ⚡'
     };
 
-    setOrdersHistory(prev => [newOrderRecord, ...prev]);
+    setOrdersHistory(prev => [newOrder, ...prev]);
+
+    // Unlock new categories bought in this order
+    cart.forEach(item => {
+      if (item.categoryKey) {
+        setUnlockedCategories(prev => {
+          if (!prev.some(c => c.key === item.categoryKey)) {
+            return [...prev, { key: item.categoryKey, title: item.categoryName || item.categoryKey }];
+          }
+          return prev;
+        });
+      }
+    });
+
     clearCart();
     navigateToTab('order-placed');
+    showToast('Order Placed Successfully! ⚡', 'check_circle');
   };
 
   return (
     <AppContext.Provider value={{
       activeTab,
       setActiveTab: navigateToTab,
-      goBack,
       selectedCategoryKey,
+      setSelectedCategoryKey,
       openCategory,
       selectedProduct,
       openProduct,
-      currentHouseholdId,
-      householdData,
-      switchHousehold,
       cart,
       addToCart,
       updateQuantity,
@@ -278,23 +313,23 @@ export const AppProvider = ({ children }) => {
       deliveryFee,
       taxesFee,
       grandTotal,
+      currentHouseholdId,
+      householdData,
+      switchHousehold,
       paymentMethod,
       setPaymentMethod,
-      unlockedCategories,
+      placeOrder,
       ordersHistory,
+      unlockedCategories,
       dislikedItemIds,
-      userPreferences,
       handleThumbsUp,
       handleThumbsDown,
-      dislikedNudgeIds,
       handleNudgeThumbsDown,
       handleNudgeThumbsUp,
-      toast,
-      showToast,
-      coachStep,
-      setCoachStep,
       getDynamicCheckoutNudge,
-      placeOrder
+      goBack,
+      toastMessage,
+      showToast
     }}>
       {children}
     </AppContext.Provider>

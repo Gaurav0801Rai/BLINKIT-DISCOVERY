@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { TopHeader } from '../components/Navigation';
+import { fetchGrokCheckoutNudge } from '../services/grokService';
 
 export const CheckoutScreen = () => {
   const { 
@@ -17,30 +18,71 @@ export const CheckoutScreen = () => {
     setActiveTab,
     getDynamicCheckoutNudge,
     handleNudgeThumbsUp,
-    handleNudgeThumbsDown
+    handleNudgeThumbsDown,
+    ordersHistory,
+    householdData
   } = useApp();
 
   const [aiFeedbackSaved, setAiFeedbackSaved] = useState(false);
   const [unlockedCategoryBanner, setUnlockedCategoryBanner] = useState(null);
+  const [isNudgeDismissed, setIsNudgeDismissed] = useState(false);
 
-  const dynamicNudge = getDynamicCheckoutNudge();
+  const ruleFallbackNudge = getDynamicCheckoutNudge();
+  const [nudge, setNudge] = useState(ruleFallbackNudge);
+
+  // Check if active nudge item is already inside cart
+  const activeNudge = nudge || ruleFallbackNudge;
+  const isNudgeItemInCart = cart.some(i => i.id === activeNudge.id || i.name === activeNudge.title);
+
+  // Fetch Grok AI Recommendation with 2s timeout & fallback
+  useEffect(() => {
+    let isMounted = true;
+    async function loadGrokNudge() {
+      const fallback = getDynamicCheckoutNudge();
+      const result = await fetchGrokCheckoutNudge({
+        cart,
+        pastOrders: ordersHistory,
+        householdData,
+        fallbackNudge: fallback
+      });
+      if (isMounted && result) {
+        setNudge(result);
+      }
+    }
+    if (cart.length > 0 && !isNudgeDismissed) {
+      loadGrokNudge();
+    }
+    return () => { isMounted = false; };
+  }, [cart.length, householdData.id]);
 
   const onThumbsUpClicked = () => {
     setAiFeedbackSaved(true);
-    handleNudgeThumbsUp(dynamicNudge.title);
+    handleNudgeThumbsUp(activeNudge.title);
+  };
+
+  const onThumbsDownClicked = () => {
+    handleNudgeThumbsDown(activeNudge.id);
+    const nextNudge = getDynamicCheckoutNudge();
+    setNudge(nextNudge);
   };
 
   const onAddNudgeToCart = () => {
     addToCart({
-      id: dynamicNudge.id,
-      name: dynamicNudge.title,
-      price: dynamicNudge.price,
+      id: activeNudge.id,
+      name: activeNudge.title,
+      price: activeNudge.price,
       weight: '1 unit',
-      image: dynamicNudge.image,
-      categoryKey: dynamicNudge.categoryKey || 'staples',
-      categoryName: dynamicNudge.categoryName || 'New Discovery'
+      image: activeNudge.image,
+      categoryKey: activeNudge.categoryKey || 'staples',
+      categoryName: activeNudge.categoryName || 'New Discovery'
     });
-    setUnlockedCategoryBanner(`🎉 New Category Unlocked: ${dynamicNudge.categoryName}!`);
+    setUnlockedCategoryBanner(`🎉 New Category Unlocked: ${activeNudge.categoryName}!`);
+
+    // Load next unbought recommendation
+    setTimeout(() => {
+      const nextNudge = getDynamicCheckoutNudge();
+      setNudge(nextNudge);
+    }, 400);
   };
 
   return (
@@ -70,7 +112,7 @@ export const CheckoutScreen = () => {
                 </div>
                 <div>
                   <h3 className="text-xs font-extrabold text-[#1F1B12]">Delivery in 8 Mins ⚡</h3>
-                  <p className="text-[11px] text-slate-500 font-medium">Sector 22, Gurugram</p>
+                  <p className="text-[11px] text-slate-500 font-medium">{householdData.location || 'Gurugram'}</p>
                 </div>
               </div>
               <button 
@@ -132,67 +174,95 @@ export const CheckoutScreen = () => {
               </div>
             )}
 
-            {/* DYNAMIC CROSS-CATEGORY RECOMMENDATION NUDGE CARD WITH REACTION THUMBS UP/DOWN */}
-            <div id="checkout-recommendation-card" className="bg-[#E7F1EF] border-2 border-[#0C831F]/40 p-4 rounded-2xl shadow-card space-y-2.5 relative">
-              <div className="flex items-center justify-between">
-                <span className="bg-[#0C831F] text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  ✨ Cross-Category Discovery
-                </span>
+            {/* DYNAMIC CROSS-CATEGORY RECOMMENDATION NUDGE CARD WITH DISMISS & ROTATION */}
+            {!isNudgeDismissed && (
+              <div id="checkout-recommendation-card" className="bg-[#E7F1EF] border-2 border-[#0C831F]/40 p-4 rounded-2xl shadow-card space-y-2.5 relative animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <span className="bg-[#0C831F] text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                    <span>✨ {activeNudge.isGrokPowered ? 'Grok AI Discovery' : 'Cross-Category Discovery'}</span>
+                  </span>
 
-                {/* THUMBS UP & THUMBS DOWN REACTION BUTTONS */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-slate-600">AI Feedback:</span>
-                  <button 
-                    onClick={onThumbsUpClicked}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-colors ${
-                      aiFeedbackSaved ? 'bg-[#0C831F] text-white' : 'bg-white text-[#0C831F] hover:bg-[#0C831F] hover:text-white'
-                    }`}
-                    title="Confirm AI recommendation fits your household"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">thumb_up</span>
-                  </button>
-                  <button 
-                    onClick={() => handleNudgeThumbsDown(dynamicNudge.id)}
-                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-red-600 shadow-xs active:scale-90 hover:bg-red-600 hover:text-white transition-colors"
-                    title="Show alternative recommendation"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">thumb_down</span>
-                  </button>
-                </div>
-              </div>
-
-              {aiFeedbackSaved && (
-                <div className="text-[10px] font-bold text-[#0C831F] bg-white px-2 py-0.5 rounded-md inline-block">
-                  ✓ AI Preference Remembered for Future Orders
-                </div>
-              )}
-
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 bg-white rounded-xl p-1.5 shrink-0 flex items-center justify-center border border-white shadow-xs">
-                  <img src={dynamicNudge.image} alt={dynamicNudge.title} className="w-full h-full object-contain" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] font-extrabold text-[#0C831F] uppercase bg-white px-1.5 py-0.2 rounded-md">
-                      {dynamicNudge.categoryName || 'New Category'}
-                    </span>
+                  {/* THUMBS UP, THUMBS DOWN & DISMISS ('X') BUTTONS */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-600">AI Feedback:</span>
+                    <button 
+                      onClick={onThumbsUpClicked}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-colors ${
+                        aiFeedbackSaved ? 'bg-[#0C831F] text-white' : 'bg-white text-[#0C831F] hover:bg-[#0C831F] hover:text-white'
+                      }`}
+                      title="Confirm AI recommendation fits your household"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">thumb_up</span>
+                    </button>
+                    <button 
+                      onClick={onThumbsDownClicked}
+                      className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-red-600 shadow-xs active:scale-90 hover:bg-red-600 hover:text-white transition-colors"
+                      title="Show alternative recommendation"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">thumb_down</span>
+                    </button>
+                    <button 
+                      onClick={() => setIsNudgeDismissed(true)}
+                      className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-slate-500 hover:text-red-600 shadow-xs active:scale-90 transition-colors ml-1"
+                      title="Dismiss recommendation card"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">close</span>
+                    </button>
                   </div>
-                  <h4 className="text-xs font-extrabold text-[#1F1B12] mt-0.5">{dynamicNudge.title}</h4>
-                  <p className="text-[10px] font-bold text-[#0C831F]">₹{dynamicNudge.price}</p>
-                  <p className="text-[10px] text-slate-600 italic mt-0.5 leading-snug">
-                    {dynamicNudge.reason}
-                  </p>
                 </div>
-              </div>
 
-              <button 
-                onClick={onAddNudgeToCart}
-                className="w-full py-2.5 bg-[#0C831F] hover:bg-[#0A6E1A] text-white font-extrabold text-xs rounded-xl active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1 uppercase tracking-wide"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Add {dynamicNudge.title} to Cart (+₹{dynamicNudge.price})</span>
-              </button>
-            </div>
+                {aiFeedbackSaved && (
+                  <div className="text-[10px] font-bold text-[#0C831F] bg-white px-2 py-0.5 rounded-md inline-block">
+                    ✓ AI Preference Remembered for Future Orders
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 bg-white rounded-xl p-1.5 shrink-0 flex items-center justify-center border border-white shadow-xs">
+                    <img src={activeNudge.image} alt={activeNudge.title} className="w-full h-full object-contain" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] font-extrabold text-[#0C831F] uppercase bg-white px-1.5 py-0.2 rounded-md">
+                        {activeNudge.categoryName || 'New Category'}
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-extrabold text-[#1F1B12] mt-0.5">{activeNudge.title}</h4>
+                    <p className="text-[10px] font-bold text-[#0C831F]">₹{activeNudge.price}</p>
+                    <p className="text-[10px] text-slate-600 italic mt-0.5 leading-snug">
+                      {activeNudge.reason}
+                    </p>
+                  </div>
+                </div>
+
+                {/* DYNAMIC ACTION BUTTON: ADD TO CART OR ROTATE TO NEXT */}
+                {isNudgeItemInCart ? (
+                  <div className="flex items-center gap-2 pt-1">
+                    <div className="flex-1 bg-white text-[#0C831F] border border-[#0C831F] font-extrabold text-xs py-2 px-3 rounded-xl text-center flex items-center justify-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      <span>Added to Cart!</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const nextNudge = getDynamicCheckoutNudge();
+                        setNudge(nextNudge);
+                      }}
+                      className="py-2 px-3 bg-[#0C831F] text-white font-extrabold text-xs rounded-xl active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1"
+                    >
+                      <span>Try Next Category &rarr;</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={onAddNudgeToCart}
+                    className="w-full py-2.5 bg-[#0C831F] hover:bg-[#0A6E1A] text-white font-extrabold text-xs rounded-xl active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1 uppercase tracking-wide"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    <span>Add {activeNudge.title} to Cart (+₹{activeNudge.price})</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Bill Details Card */}
             <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-2">
@@ -200,87 +270,72 @@ export const CheckoutScreen = () => {
                 Bill Summary
               </h3>
 
-              <div className="flex justify-between text-xs text-slate-600 font-medium">
-                <span>Items Subtotal</span>
-                <span>₹{itemTotal}</span>
-              </div>
+              <div className="space-y-1.5 text-xs text-slate-600 pt-1">
+                <div className="flex justify-between">
+                  <span>Item Total</span>
+                  <span className="font-bold text-[#1F1B12]">₹{itemTotal}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Handling Fee</span>
+                  <span className="font-bold text-[#1F1B12]">₹{handlingFee}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Delivery Fee (8 Mins)</span>
+                  <span className="font-extrabold text-[#0C831F]">FREE</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Taxes & Charges</span>
+                  <span className="font-bold text-[#1F1B12]">₹{taxesFee}</span>
+                </div>
 
-              <div className="flex justify-between text-xs text-slate-600 font-medium">
-                <span>Handling Fee</span>
-                <span>₹{handlingFee}</span>
-              </div>
-
-              <div className="flex justify-between text-xs text-[#0C831F] font-bold">
-                <span>Delivery Fee (8 Mins)</span>
-                <span>FREE</span>
-              </div>
-
-              <div className="flex justify-between text-xs text-slate-600 font-medium">
-                <span>Taxes & Charges</span>
-                <span>₹{taxesFee}</span>
-              </div>
-
-              <div className="flex justify-between text-sm font-extrabold text-[#1F1B12] pt-2 border-t border-slate-100">
-                <span>Grand Total</span>
-                <span>₹{grandTotal}</span>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-2 mt-2 font-extrabold text-sm text-[#1F1B12]">
+                  <span>To Pay</span>
+                  <span className="text-[#0C831F] text-base">₹{grandTotal}</span>
+                </div>
               </div>
             </div>
 
             {/* Payment Method Selector */}
-            <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-3">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+            <div className="bg-white p-4 rounded-2xl shadow-card border border-slate-100 space-y-2">
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1.5">
                 Select Payment Method
               </h3>
 
-              <div className="grid grid-cols-3 gap-2">
-                <button
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button 
                   onClick={() => setPaymentMethod('upi')}
-                  className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all active:scale-95 ${
-                    paymentMethod === 'upi'
-                      ? 'bg-[#E7F1EF] border-2 border-[#0C831F] text-[#0C831F]'
-                      : 'bg-[#F7F7F5] border-slate-200 text-slate-600'
+                  className={`p-2.5 rounded-xl border text-center font-extrabold text-xs transition-all ${
+                    paymentMethod === 'upi' ? 'border-[#0C831F] bg-[#E7F1EF] text-[#0C831F]' : 'border-slate-200 text-slate-600'
                   }`}
                 >
-                  <span className="material-symbols-outlined block text-[20px] mb-0.5">account_balance_wallet</span>
-                  <span>UPI Instant</span>
+                  ⚡ UPI
                 </button>
-
-                <button
+                <button 
                   onClick={() => setPaymentMethod('card')}
-                  className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all active:scale-95 ${
-                    paymentMethod === 'card'
-                      ? 'bg-[#E7F1EF] border-2 border-[#0C831F] text-[#0C831F]'
-                      : 'bg-[#F7F7F5] border-slate-200 text-slate-600'
+                  className={`p-2.5 rounded-xl border text-center font-extrabold text-xs transition-all ${
+                    paymentMethod === 'card' ? 'border-[#0C831F] bg-[#E7F1EF] text-[#0C831F]' : 'border-slate-200 text-slate-600'
                   }`}
                 >
-                  <span className="material-symbols-outlined block text-[20px] mb-0.5">credit_card</span>
-                  <span>Credit Card</span>
+                  💳 Card
                 </button>
-
-                <button
+                <button 
                   onClick={() => setPaymentMethod('cod')}
-                  className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all active:scale-95 ${
-                    paymentMethod === 'cod'
-                      ? 'bg-[#E7F1EF] border-2 border-[#0C831F] text-[#0C831F]'
-                      : 'bg-[#F7F7F5] border-slate-200 text-slate-600'
+                  className={`p-2.5 rounded-xl border text-center font-extrabold text-xs transition-all ${
+                    paymentMethod === 'cod' ? 'border-[#0C831F] bg-[#E7F1EF] text-[#0C831F]' : 'border-slate-200 text-slate-600'
                   }`}
                 >
-                  <span className="material-symbols-outlined block text-[20px] mb-0.5">payments</span>
-                  <span>Cash (COD)</span>
+                  💵 Cash
                 </button>
               </div>
             </div>
 
-            {/* Place Order Button */}
+            {/* Action Button: Place Order */}
             <button 
               onClick={placeOrder}
-              className="w-full py-3.5 bg-[#0C831F] hover:bg-[#0A6E1A] text-white font-extrabold text-sm rounded-2xl shadow-lg active:scale-98 transition-all flex items-center justify-between px-5 uppercase tracking-wider"
+              className="w-full py-3.5 bg-[#0C831F] hover:bg-[#0A6E1A] text-white font-extrabold text-sm rounded-2xl shadow-lg active:scale-95 transition-all text-center uppercase tracking-wider flex items-center justify-center gap-2"
             >
-              <span>Pay ₹{grandTotal}</span>
-              <span className="flex items-center gap-1">
-                <span>Place Order</span>
-                <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-              </span>
+              <span>Place Order (₹{grandTotal})</span>
+              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
           </>
         )}

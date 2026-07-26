@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { PhoneFrame } from './components/PhoneFrame';
 import { BottomNavBar } from './components/Navigation';
@@ -20,7 +20,16 @@ import { ProfileScreen } from './pages/ProfileScreen';
 import { SimulateHouseholdScreen } from './pages/SimulateHouseholdScreen';
 
 const MainContent = () => {
-  const { activeTab } = useApp();
+  const { activeTab, selectedCategoryKey } = useApp();
+  const contentRef = useRef(null);
+
+  // Auto Reset Scroll Position to (0, 0) whenever activeTab or category changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [activeTab, selectedCategoryKey]);
 
   const renderScreen = () => {
     switch (activeTab) {
@@ -57,7 +66,7 @@ const MainContent = () => {
 
   return (
     <div className="relative w-full h-full flex flex-col justify-between overflow-hidden">
-      <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar">
+      <div ref={contentRef} className="flex-1 w-full h-full overflow-y-auto no-scrollbar">
         {renderScreen()}
       </div>
       <BottomNavBar />

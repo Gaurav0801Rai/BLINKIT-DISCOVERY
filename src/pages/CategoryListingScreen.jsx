@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { TopHeader } from '../components/Navigation';
 import { PRODUCTS_DATABASE, getFallbackProductImage } from '../data/productsData';
@@ -10,6 +10,15 @@ export const CategoryListingScreen = () => {
     addToCart, 
     dislikedItemIds = []
   } = useApp();
+
+  // Reset scroll position to top whenever a new category is opened
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const scrollable = document.querySelector('.overflow-y-auto');
+    if (scrollable) {
+      scrollable.scrollTop = 0;
+    }
+  }, [selectedCategoryKey]);
 
   // STRICT 1:1 CATEGORY TAG MATCHING (Zero Grocery / Staples Leakage!)
   const categoryProducts = PRODUCTS_DATABASE.filter(p => p.categoryKey === selectedCategoryKey);
@@ -58,7 +67,10 @@ export const CategoryListingScreen = () => {
                   <img 
                     src={p.image} 
                     alt={p.name} 
-                    onError={(e) => { e.target.src = getFallbackProductImage(p.name, p.categoryKey); }}
+                    onError={(e) => { 
+                      e.target.onerror = null; 
+                      e.target.src = getFallbackProductImage(p.name, p.categoryKey); 
+                    }}
                     className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200" 
                   />
                 </div>
@@ -93,7 +105,7 @@ export const CategoryListingScreen = () => {
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                      className="bg-white border-2 border-[#0C831F] text-[#0C831F] hover:bg-[#0C831F] hover:text-white font-extrabold text-[11px] py-1 px-3 rounded-lg active:scale-95 transition-all shadow-xs uppercase"
+                      className="bg-white border-2 border-[#0C831F] text-[#0C831F] hover:bg-[#0C831F] hover:text-white font-extrabold text-xs py-1 px-3 rounded-lg active:scale-95 transition-all shadow-xs"
                     >
                       ADD
                     </button>

@@ -84,18 +84,26 @@ export const BottomNav = () => {
   ];
 
   return (
-    <nav className="sticky bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-2 py-1.5 flex justify-around items-center shadow-lg w-full shrink-0">
+    <nav className="sticky bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 px-2 py-1.5 flex justify-around items-center shadow-lg w-full shrink-0">
       {navItems.map(item => {
         const isActive = activeTab === item.id || (item.id === 'categories' && activeTab === 'category-listing');
+        const isCategories = item.id === 'categories';
+
         return (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all relative ${
-              isActive ? 'text-[#0C831F] font-extrabold' : 'text-slate-500 font-medium hover:text-slate-800'
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all relative ${
+              isCategories
+                ? isActive
+                  ? 'bg-[#F8CB46] text-[#1F1B12] font-black shadow-md scale-105 ring-2 ring-[#0C831F]'
+                  : 'bg-[#F8CB46] text-[#1F1B12] font-extrabold shadow-sm hover:bg-[#F8CB46]/90 ring-1 ring-[#0C831F]/50 scale-100'
+                : isActive
+                ? 'text-[#0C831F] font-extrabold'
+                : 'text-slate-500 font-medium hover:text-slate-800'
             }`}
           >
-            <div className="relative">
+            <div className="relative flex items-center justify-center">
               <span 
                 className="material-symbols-outlined text-[22px]"
                 style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
@@ -107,8 +115,16 @@ export const BottomNav = () => {
                   {item.badge}
                 </span>
               )}
+              {isCategories && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0C831F] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#0C831F]"></span>
+                </span>
+              )}
             </div>
-            <span className="text-[10px] tracking-tight mt-0.5">{item.label}</span>
+            <span className={`text-[10px] tracking-tight mt-0.5 ${isCategories ? 'font-black uppercase text-[#1F1B12]' : ''}`}>
+              {item.label}
+            </span>
           </button>
         );
       })}
