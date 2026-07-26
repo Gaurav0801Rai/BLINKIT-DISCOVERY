@@ -2,9 +2,9 @@ import React from 'react';
 
 export const PhoneFrame = ({ children }) => {
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4 bg-[#F4F5F7] select-none overflow-hidden">
-      {/* Outer Phone Shell - Always slim, tall portrait mobile phone mockup */}
-      <div className="relative w-[370px] max-w-[94vw] h-[800px] max-h-[94vh] bg-white rounded-[40px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] border-[8px] border-[#1C1C1E] overflow-hidden flex flex-col transition-all duration-300">
+    <div className="relative w-full h-full min-h-screen flex items-center justify-center p-3 sm:p-4 bg-[#F4F5F7] select-none overflow-hidden">
+      {/* Outer Phone Shell - Perfectly proportioned portrait mockup that fits comfortably on any screen */}
+      <div className="relative w-[355px] max-w-[92vw] h-[720px] max-h-[88vh] bg-white rounded-[40px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] border-[8px] border-[#1C1C1E] overflow-hidden flex flex-col transition-all duration-300">
         
         {/* Dynamic Island / Top Speaker Notch */}
         <div className="flex absolute top-0 left-1/2 -translate-x-1/2 w-26 h-4 bg-[#1C1C1E] rounded-b-xl z-50 items-center justify-center gap-1.5">
@@ -23,7 +23,7 @@ export const PhoneFrame = ({ children }) => {
         </div>
 
         {/* Scrollable Viewport Inner Content */}
-        <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar relative bg-[#F7F7F5] flex flex-col">
+        <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar relative bg-[#F7F7F5] flex flex-col min-h-0">
           {children}
         </div>
 
